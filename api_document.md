@@ -1,3 +1,306 @@
+## Posts / Comments / Reactions APIs
+
+This section describes the post (article) system: creating and managing posts, nested comments, and reaction types (like, love, haha, wow, sad, angry, care).
+
+Notes:
+Authentication: most write endpoints require authentication (the server uses an HTTP-only `auth_token` cookie). Read endpoints are usually `AuthOptional`.
+Visibility: posts support `public` and `private` visibility. Private posts are visible only to the author.
+
+### GET /posts
+**Description**: List posts with simple filtering and pagination. Authentication optional.
+
+**Query Parameters**:
+- `page` (int, optional): page number (default 1)
+- `limit` (int, optional): items per page (default 20)
+- `author_id` (uint, optional): filter by author
+- `tag` (string, optional): filter by tag slug
+- `status` (string, optional): `published|draft|archived` (only authors/admins can see drafts)
+
+**Success Response (200)**:
+```json
+{
+  "page": 1,
+  "limit": 20,
+  "total": 123,
+  "posts": [
+    {
+      "id": 10,
+      "author_id": 1,
+      "title": "Hello world",
+      "summary": "Short summary",
+      "cover_image": "/uploads/cover.jpg",
+      "status": "published",
+      "visibility": "public",
+      "view_count": 42,
+      "published_at": "2025-11-10T12:00:00Z",
+      "tags": ["news","update"]
+    }
+  ]
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: invalid query parameters
+
+---
+
+### POST /posts
+**Description**: Create a new post. Requires authentication.
+
+**Request Body**:
+```json
+{
+  "title": "My post title",
+  "content": "Full HTML or markdown content",
+  "summary": "Optional short summary",
+  "cover_image": "/uploads/cover.jpg",
+  "status": "draft", // draft | published | archived
+  "visibility": "public", // public | private
+  "tags": ["go","programming"]
+}
+```
+
+**Request Body Schema**:
+- `title` (string, required)
+- `content` (string, required)
+- `summary` (string, optional)
+- `cover_image` (string, optional)
+- `status` (string, optional): `draft|published|archived` (default `draft`)
+- `visibility` (string, optional): `public|private` (default `public`)
+- `tags` (string[], optional)
+
+**Success Response (201)**:
+```json
+{
+  "id": 11,
+  "author_id": 1,
+  "title": "My post title",
+  "status": "draft",
+  "visibility": "public",
+  "published_at": null
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: validation error
+- `401 Unauthorized`: missing/invalid authentication
+- `500 Internal Server Error`: DB error
+
+---
+
+### GET /posts/:id
+**Description**: Get a single post by ID. Authentication optional. Private posts return 403 for non-author.
+
+**Path Parameters**:
+- `id` (uint, required): Post ID
+
+**Success Response (200)**:
+```json
+{
+  "id": 11,
+  "author_id": 1,
+  "title": "My post title",
+  "content": "Full content",
+  "summary": "Optional",
+  "cover_image": "/uploads/cover.jpg",
+  "status": "published",
+  "visibility": "public",
+  "view_count": 123,
+  "published_at": "2025-11-10T12:00:00Z",
+  "tags": ["go","programming"],
+  "comments_count": 5,
+  "reactions_summary": {"like": 10, "love": 2}
+}
+```
+
+**Error Responses**:
+- `401 Unauthorized` / `403 Forbidden`: access denied for private posts
+- `404 Not Found`: post not found
+
+---
+
+### PUT /posts/:id
+**Description**: Update a post. Requires authentication and must be the author (or admin).
+
+**Path Parameters**:
+- `id` (uint, required): Post ID
+
+**Request Body**: same as `POST /posts` (partial updates allowed)
+
+**Success Response (200)**:
+```json
+{
+  "message": "Post updated",
+  "id": 11
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: validation error
+- `401 Unauthorized`: not logged in
+- `403 Forbidden`: not the author
+- `404 Not Found`: post not found
+
+---
+
+### DELETE /posts/:id
+**Description**: Delete a post. Requires authentication and must be the author or an admin. This performs a soft delete.
+
+**Path Parameters**:
+- `id` (uint, required): Post ID
+
+**Success Response (200)**:
+```json
+{
+  "message": "Post deleted"
+}
+```
+
+**Error Responses**:
+- `401 Unauthorized`, `403 Forbidden`, `404 Not Found`
+
+---
+
+### GET /posts/:id/comments
+**Description**: List comments for a post. Returns nested replies. Authentication optional.
+
+**Path Parameters**:
+- `id` (uint, required): Post ID
+
+**Success Response (200)**:
+```json
+[
+  {
+    "id": 1,
+    "post_id": 11,
+    "author_id": 2,
+    "content": "Top-level comment",
+    "parent_id": null,
+    "replies": [
+      { "id": 2, "parent_id": 1, "content": "Reply" }
+    ],
+    "is_deleted": false
+  }
+]
+```
+
+---
+
+### POST /posts/:id/comments
+**Description**: Create a comment on a post. Requires authentication.
+
+**Path Parameters**:
+- `id` (uint, required): Post ID
+
+**Request Body**:
+```json
+{
+  "content": "Nice post!",
+  "parent_id": null
+}
+```
+
+**Success Response (201)**:
+```json
+{
+  "id": 21,
+  "post_id": 11,
+  "author_id": 3,
+  "content": "Nice post!",
+  "parent_id": null
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`, `401 Unauthorized`, `404 Not Found` (post not found)
+
+---
+
+### PUT /comments/:comment_id
+**Description**: Update a comment. Requires authentication and comment owner.
+
+**Request Body**:
+```json
+{
+  "content": "Updated content"
+}
+```
+
+**Success Response (200)**:
+```json
+{
+  "message": "Comment updated",
+  "id": 21
+}
+```
+
+---
+
+### DELETE /comments/:comment_id
+**Description**: Soft-delete a comment. Requires authentication and comment owner or post author.
+
+**Success Response (200)**:
+```json
+{
+  "message": "Comment deleted"
+}
+```
+
+---
+
+### POST /posts/:id/reactions
+**Description**: Add or toggle a reaction to a post. Requires authentication.
+
+**Path Parameters**:
+- `id` (uint, required): Post ID
+
+**Request Body**:
+```json
+{ "type": "like" }
+```
+
+**Behavior**:
+- If the user has no reaction on the target, the reaction is created.
+- If the user has the same reaction, it is removed (toggle off).
+- If the user has a different reaction, it is updated to the new type.
+
+**Success Response (200)**:
+```json
+{ "message": "Reaction updated", "summary": {"like": 10, "love": 2} }
+```
+
+---
+
+### POST /comments/:comment_id/reactions
+**Description**: Add or toggle a reaction to a comment. Requires authentication. Same behavior as post reactions.
+
+---
+
+### GET /posts/:id/reactions
+**Description**: Get reaction summary for a post. Authentication optional.
+
+**Success Response (200)**:
+```json
+{ "like": 10, "love": 2, "haha": 0 }
+```
+
+---
+
+### GET /comments/:comment_id/reactions
+**Description**: Get reaction summary for a comment.
+
+**Success Response (200)**:
+```json
+{ "like": 2, "love": 0 }
+```
+
+---
+
+## Posts API Notes
+- Reactions types: `like`, `love`, `haha`, `wow`, `sad`, `angry`, `care`.
+- Comments use soft-delete: deleted comments keep place in thread but marked as deleted.
+- Posts with `status: draft` are visible only to the author and admins.
+- All write operations require authentication; read endpoints are often available without auth but hide private content.
 # Personal Site Backend API Documentation
 
 ## Authentication APIs
