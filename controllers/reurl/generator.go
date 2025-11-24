@@ -14,7 +14,7 @@ const invalidGeneratedKeyVal = 62*62*62
 func base62CharToValue(c byte) uint {
 	var ret = base62Rev[c]
 	if ret == -1 {
-		fmt.Errorf("invalid base62 character: %c", c)
+		fmt.Printf("invalid base62 character: %c\n", c)
 		return invalidGeneratedKeyVal
 	}
 	return uint(ret)
@@ -22,7 +22,7 @@ func base62CharToValue(c byte) uint {
 
 func base62ValueToChar(v uint) byte {
 	if v >= 62 {
-		fmt.Errorf("invalid base62 value: %d", v)
+		fmt.Printf("invalid base62 value: %d\n", v)
 		return base62Alphabet[0]
 	}
 	return base62Alphabet[v]
@@ -46,7 +46,7 @@ func base62Decode(s string) uint {
 	var n uint = 0
 	for i := 0; i < len(s); i++ {
 		if base62CharToValue(s[i]) == invalidGeneratedKeyVal {
-			fmt.Errorf("invalid base62 string: %s", s)
+			fmt.Printf("invalid base62 string: %s\n", s)
 			return invalidGeneratedKeyVal
 		}
 		n = n*62 + base62CharToValue(s[i])
