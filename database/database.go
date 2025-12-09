@@ -20,7 +20,16 @@ func initMySQLDB(dsn string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to connect to MySQL database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&models.User{}, &models.YTDataAPITokenHistory{}, &models.BattleCatLevel{}, &models.Reurl{}); err != nil {
+	if err := db.AutoMigrate(
+		&models.User{},
+		&models.YTDataAPITokenHistory{},
+		&models.BattleCatLevel{},
+		&models.Reurl{},
+		&models.Post{},
+		&models.Tag{},
+		&models.Comment{},
+		&models.Reaction{},
+	); err != nil {
 		return nil, fmt.Errorf("auto migrate failed: %v", err)
 	}
 
@@ -33,7 +42,16 @@ func initSQLiteDB(dsn string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to connect to SQLite database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&models.User{}, &models.YTDataAPITokenHistory{}, &models.BattleCatLevel{}, &models.Reurl{}); err != nil {
+	if err := db.AutoMigrate(
+		&models.User{},
+		&models.YTDataAPITokenHistory{},
+		&models.BattleCatLevel{},
+		&models.Reurl{},
+		&models.Post{},
+		&models.Tag{},
+		&models.Comment{},
+		&models.Reaction{},
+	); err != nil {
 		return nil, fmt.Errorf("auto migrate failed: %v", err)
 	}
 
